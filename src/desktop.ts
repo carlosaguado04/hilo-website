@@ -41,7 +41,31 @@ export function drawDesktop(
   ctx.restore()
 }
 
-export function drawDock(ctx: CanvasRenderingContext2D, dock: DockLayout): void {
+type DockPointer = { x: number; y: number }
+
+let magScales: number[] = []
+
+function dockRoster(icon: number): { name: Glyph | 'trash'; afterGap: number }[] {
+  const gap = icon < 34 ? 8 : 10
+  const apps: Glyph[] =
+    icon < 34
+      ? ['finder', 'browser', 'notes', 'mail', 'term']
+      : ['finder', 'browser', 'notes', 'mail', 'term', 'music']
+  return [
+    ...apps.map((name, i) => ({
+      name,
+      afterGap: i === apps.length - 1 ? gap + 10 : gap,
+    })),
+    { name: 'trash' as const, afterGap: 0 },
+  ]
+}
+
+export function drawDock(
+  ctx: CanvasRenderingContext2D,
+  dock: DockLayout,
+  pointer: DockPointer | null = null,
+  animate = true,
+): void {
   const { x, y, w, h, icon } = dock
   const r = Math.min(18, h * 0.42)
   ctx.save()
@@ -58,31 +82,63 @@ export function drawDock(ctx: CanvasRenderingContext2D, dock: DockLayout): void 
   ctx.stroke()
 
   const pad = (h - icon) / 2
-  const gap = icon < 34 ? 8 : 10
-  const apps: Glyph[] =
-    icon < 34
-      ? ['finder', 'browser', 'notes', 'mail', 'term']
-      : ['finder', 'browser', 'notes', 'mail', 'term', 'music']
+  const items = dockRoster(icon)
+  if (magScales.length !== items.length) magScales = items.map(() => 1)
 
-  let cx = x + pad + icon / 2
-  const cy = y + pad + icon / 2
-  for (const name of apps) {
-    drawTile(ctx, cx, cy, icon)
-    drawGlyph(ctx, name, cx, cy, icon)
-    cx += icon + gap
+  const rest: number[] = []
+  let rx = x + pad + icon / 2
+  for (const item of items) {
+    rest.push(rx)
+    rx += icon + item.afterGap
   }
 
-  const divX = cx - gap / 2
-  ctx.beginPath()
-  ctx.strokeStyle = 'rgba(242, 242, 239, 0.14)'
-  ctx.lineWidth = 1
-  ctx.moveTo(divX, y + pad + 4)
-  ctx.lineTo(divX, y + h - pad - 4)
-  ctx.stroke()
+  const hot =
+    pointer &&
+    pointer.y > y - icon * 1.8 &&
+    pointer.y < y + h + 16 &&
+    pointer.x > x - 24 &&
+    pointer.x < x + w + 24
+  const range = icon * 3.15
+  const boost = 0.82
+  for (let i = 0; i < items.length; i++) {
+    let target = 1
+    if (hot && pointer) {
+      const t = Math.max(0, 1 - Math.abs(pointer.x - rest[i]) / range)
+      const smooth = t * t * (3 - 2 * t)
+      target = 1 + boost * smooth
+    }
+    magScales[i] += (target - magScales[i]) * (animate ? 0.24 : 1)
+  }
 
-  cx += 10
-  drawTile(ctx, cx, cy, icon)
-  drawTrash(ctx, cx, cy, icon)
+  const sizes = magScales.map((s) => icon * s)
+  const total =
+    sizes.reduce((sum, s, i) => sum + s + items[i].afterGap, 0) - items[items.length - 1].afterGap
+  let cursor = x + (w - total) / 2
+  const floor = y + h - pad
+
+  items.forEach((item, i) => {
+    const s = sizes[i]
+    const cx = cursor + s / 2
+    const cy = floor - s / 2
+    if (item.name === 'trash') {
+      const prev = items[i - 1]
+      if (prev) {
+        const divX = cursor - prev.afterGap / 2
+        ctx.beginPath()
+        ctx.strokeStyle = 'rgba(242, 242, 239, 0.14)'
+        ctx.lineWidth = 1
+        ctx.moveTo(divX, y + pad + 4)
+        ctx.lineTo(divX, y + h - pad - 4)
+        ctx.stroke()
+      }
+      drawTile(ctx, cx, cy, s)
+      drawTrash(ctx, cx, cy, s)
+    } else {
+      drawTile(ctx, cx, cy, s)
+      drawGlyph(ctx, item.name, cx, cy, s)
+    }
+    cursor += s + item.afterGap
+  })
   ctx.restore()
 }
 

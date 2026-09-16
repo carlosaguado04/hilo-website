@@ -47,7 +47,7 @@ The hero is a marketing timer, not a second Hilo.
 
 - Drag the smile. The thread appears only while you pull (demo ceiling 15 seconds).
 - Duration sits at the grab. Smile becomes a circle and unfills while it runs.
-- Reset (or Escape) returns to idle.
+- Escape returns to idle. The demo also resets when the pull runs out.
 - `prefers-reduced-motion` uses a static chord while pulling. The demo still sets and unfills.
 
 Download is **Coming soon** until a DMG URL is set in `src/site.ts` (`dmgUrl`). Never Mac App Store / TestFlight.

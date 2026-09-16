@@ -48,7 +48,6 @@ export function mountHero(root: HTMLElement): () => void {
   const canvas = root.querySelector('canvas')
   const hint = root.querySelector<HTMLElement>('[data-hint]')
   const timeEl = root.querySelector<HTMLElement>('[data-time]')
-  const reset = root.querySelector<HTMLButtonElement>('[data-reset]')
   if (!(canvas instanceof HTMLCanvasElement)) return () => {}
 
   const ctx = canvas.getContext('2d')
@@ -87,6 +86,7 @@ export function mountHero(root: HTMLElement): () => void {
   let bar = layoutBar(800)
   let dock = layoutDock(800, 500)
   let hover = false
+  let cursor: Pt | null = null
   let grabPoint: Pt | null = null
   let booted = reduced
   let bootAt = performance.now()
@@ -122,11 +122,6 @@ export function mountHero(root: HTMLElement): () => void {
     sim.anchor = anchor
   }
 
-  const setReset = (on: boolean) => {
-    if (!reset) return
-    reset.hidden = !on
-  }
-
   const startAnim = (next: Omit<Anim, 't0'> & { t0?: number }) => {
     if (reduced) {
       sag = next.sag1
@@ -151,7 +146,6 @@ export function mountHero(root: HTMLElement): () => void {
     endAt = 0
     clearRope()
     startAnim({ sag0: sag, sag1: 0, morph0: morph, morph1: 0, dur: HOME_MS })
-    setReset(false)
   }
 
   const release = () => {
@@ -163,7 +157,6 @@ export function mountHero(root: HTMLElement): () => void {
     progress = 1
     startAnim({ sag0: sag, sag1: 0, morph0: morph, morph1: 1, dur: INTRO_MS })
     clearRope()
-    setReset(true)
   }
 
   const grabAt = (point: Pt) => {
@@ -201,7 +194,6 @@ export function mountHero(root: HTMLElement): () => void {
     grabId = e.pointerId
     mode = 'pulling'
     anim = null
-    setReset(true)
     grabAt(p)
     if (grabPoint) {
       sim.layoutChord(sim.anchor, grabPoint)
@@ -211,11 +203,16 @@ export function mountHero(root: HTMLElement): () => void {
 
   const onPointerMove = (e: PointerEvent) => {
     const p = pointerIn(root, e)
+    cursor = p
     hover = nearHandle(p)
     if (grabId === e.pointerId && mode === 'pulling') {
       e.preventDefault()
       grabAt(p)
     }
+  }
+
+  const onPointerLeave = () => {
+    if (mode !== 'pulling') cursor = null
   }
 
   const onPointerUp = (e: PointerEvent) => {
@@ -293,7 +290,7 @@ export function mountHero(root: HTMLElement): () => void {
     syncBar()
     dock = layoutDock(width, height)
     drawDesktop(ctx, width, height, bar.barH)
-    drawDock(ctx, dock)
+    drawDock(ctx, dock, mode === 'pulling' ? null : cursor, !reduced)
     drawMenuBar(ctx, width, bar)
     const params = markParams()
     const color = mode === 'done' ? palette.heat : palette.acid
@@ -401,16 +398,15 @@ export function mountHero(root: HTMLElement): () => void {
 
   canvas.addEventListener('pointerdown', onPointerDown, { passive: false })
   canvas.addEventListener('pointermove', onPointerMove, { passive: false })
+  canvas.addEventListener('pointerleave', onPointerLeave)
   canvas.addEventListener('pointerup', onPointerUp)
   canvas.addEventListener('pointercancel', onPointerUp)
   canvas.addEventListener('lostpointercapture', () => {
     if (mode === 'pulling') release()
   })
-  reset?.addEventListener('click', onReset)
   window.addEventListener('keydown', onKey)
   motionMq.addEventListener('change', onMotion)
   onMotion()
-  setReset(false)
   raf = requestAnimationFrame(frame)
 
   return () => {
@@ -418,9 +414,9 @@ export function mountHero(root: HTMLElement): () => void {
     ro.disconnect()
     canvas.removeEventListener('pointerdown', onPointerDown)
     canvas.removeEventListener('pointermove', onPointerMove)
+    canvas.removeEventListener('pointerleave', onPointerLeave)
     canvas.removeEventListener('pointerup', onPointerUp)
     canvas.removeEventListener('pointercancel', onPointerUp)
-    reset?.removeEventListener('click', onReset)
     window.removeEventListener('keydown', onKey)
     motionMq.removeEventListener('change', onMotion)
   }
