@@ -8,6 +8,7 @@ export const site = {
     'Hilo — Pull the string. Steal the time. A Mac menu-bar timer with a hanging thread. Drag to set it, watch the smile become a circle, then unfill as it runs out.',
   url: 'https://hilo.acidity.lol',
   acidityUrl: 'https://acidity.lol',
+  email: 'hello@acidity.lol',
   platform: 'Apple Silicon',
   bar: 'Mac menu-bar',
   year: 2026,

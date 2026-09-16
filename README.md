@@ -28,9 +28,15 @@ works the same if you use bun.
 - `npm run build` / `bun run build`
 - `npm run preview` / `bun run preview`
 
+## Pages
+
+- `/` — hero (pullable timer). Do not restyle the canvas.
+- `/features` — product story. Soft hop + GSAP reveals.
+
 ## Stack
 
-- Vite + TypeScript
+- Vite + TypeScript (MPA)
+- GSAP + ScrollTrigger
 - Canvas rope (Verlet hang) + smile → circle mark
 - Satoshi Regular + Bold. The **Hilo** mark is Satoshi Bold — not Anurati.
 - No Three.js
