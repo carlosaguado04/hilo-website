@@ -1,8 +1,10 @@
 # Hilo
 
-Marketing site for [Hilo](https://usehilo.dev) — a Mac menu-bar timer with a hanging thread.
+Marketing site for [Hilo](https://hilo.acidity.lol) — a Mac menu-bar timer with a hanging thread.
 
 Pull the string. Steal the time.
+
+Canonical: **hilo.acidity.lol**.
 
 ## Run locally
 
@@ -30,14 +32,22 @@ works the same if you use bun.
 
 - Vite + TypeScript
 - Canvas rope (Verlet hang) + smile → circle mark
-- Satoshi, with Anurati only on the Acidity house line
+- Satoshi Regular + Bold. The **Hilo** mark is Satoshi Bold — not Anurati.
 - No Three.js
 
-## Motion
+## Demo
 
-`prefers-reduced-motion` freezes the hang into a static sagging curve (no fling). The mock timer still sets and unfills so the product stays readable.
+The hero is a marketing timer, not a second Hilo.
+
+- Drag the smile. The thread appears only while you pull (demo ceiling 15 seconds).
+- Duration sits at the grab. Smile becomes a circle and unfills while it runs.
+- Reset (or Escape) returns to idle.
+- `prefers-reduced-motion` uses a static chord while pulling. The demo still sets and unfills.
+
+Download is **Coming soon** until a DMG URL is set in `src/site.ts` (`dmgUrl`). Never Mac App Store / TestFlight.
 
 ## Brand
 
-ink `#0C0D10`, paper `#F4F4F2`, coral `#FF6B5A`.
-An [Acidity](https://acidity.lol) studio.
+void `#070708`, ink `#f2f2ef` / mute `#9a9a96`, acid `#e8ff3d`. Heat / ember sparingly.
+
+A product of [Acidity](https://acidity.lol).

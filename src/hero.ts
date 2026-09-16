@@ -2,19 +2,22 @@ import {
   MAX_SECONDS,
   MIN_SECONDS,
   SLACK,
+  extraForMax,
   formatLive,
   isSnap,
   secondsFromPull,
 } from './duration'
+import { drawDesktop, drawDock, layoutDock } from './desktop'
+import { drawMenuBar, layoutBar } from './menubar'
+import { palette } from './site'
 import { RopeSim, type Pt, smoothRopePath } from './rope'
 import { drawMark, markMetrics, type MarkParams } from './smile'
 
-const CORAL = '#FF6B5A'
-const CORAL_DEEP = '#c94b3e'
 const INTRO_MS = 420
 const HOME_MS = 320
-const DONE_HOLD_MS = 480
+const DONE_HOLD_MS = 720
 const SAG_VISUAL = 240
+const BOOT_MS = 780
 
 type Mode = 'idle' | 'pulling' | 'running' | 'done'
 
@@ -52,13 +55,13 @@ export function mountHero(root: HTMLElement): () => void {
   if (!ctx) return () => {}
 
   const sim = new RopeSim()
-  sim.slack = 1.1
+  sim.slack = 1.22
   sim.damping = 0.96
   sim.gravity = 1960
   sim.iterations = 12
   sim.particleCount = 22
   sim.constraintRelax = 1
-  sim.tailRelax = 1
+  sim.tailRelax = 0.4
   const motionMq = window.matchMedia('(prefers-reduced-motion: reduce)')
 
   let reduced = motionMq.matches
@@ -79,36 +82,26 @@ export function mountHero(root: HTMLElement): () => void {
   let doneAt = 0
   let smileX = 0
   let smileMidY = 0
-  let smileSize = 112
-  let homeEnd: Pt = { x: 0, y: 0 }
-  let hangLen = 240
-  let hangNudge = 26
-  let idleRest = 160
-  let extraFor15 = 280
+  let smileSize = 18
+  let pullExtra = 360
+  let bar = layoutBar(800)
+  let dock = layoutDock(800, 500)
   let hover = false
-  let lastSnap = false
   let grabPoint: Pt | null = null
+  let booted = reduced
+  let bootAt = performance.now()
 
   const markParams = (): MarkParams => ({ sag, morph, progress })
 
-  const restEnd = (anchor: Pt): Pt => ({
-    x: anchor.x + hangNudge,
-    y: anchor.y + hangLen,
-  })
-
-  const restAt = (anchor: Pt) => {
-    homeEnd = restEnd(anchor)
-    sim.anchor = { ...anchor }
-    sim.farAnchor = { ...homeEnd }
-    sim.pinsBothEnds = true
-    sim.restLength = idleRest
+  const smileAnchor = (): Pt => {
+    const metrics = markMetrics(smileX, smileMidY, smileSize, markParams())
+    return { x: smileX, y: metrics.bottomY }
   }
 
   const layout = () => {
     const next = Math.min(2, window.devicePixelRatio || 1)
     const w = Math.max(1, root.clientWidth)
     const h = Math.max(1, root.clientHeight)
-    const resized = w !== width || h !== height || next !== dpr
     width = w
     height = h
     dpr = next
@@ -118,36 +111,20 @@ export function mountHero(root: HTMLElement): () => void {
     canvas.style.height = `${h}px`
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
 
-    const mobile = w < 760
-    smileSize = mobile ? Math.min(92, w * 0.24) : Math.min(128, w * 0.13)
-    smileX = w * 0.5
-    smileMidY = mobile ? Math.min(h * 0.36, 220) : h * 0.2
-    const metrics = markMetrics(smileX, smileMidY, smileSize, markParams())
-    const anchor = { x: smileX, y: metrics.bottomY }
-    hangLen = Math.min(mobile ? h * 0.2 : h * 0.24, mobile ? 148 : 188)
-    hangNudge = Math.min(28, Math.max(16, w * 0.02))
-    homeEnd = restEnd(anchor)
-    idleRest = Math.max(48, Math.hypot(homeEnd.x - anchor.x, homeEnd.y - anchor.y) * sim.slack)
-    extraFor15 = Math.max(170, Math.min(260, h - anchor.y - 40))
+    bar = layoutBar(w)
+    dock = layoutDock(w, h)
+    smileSize = bar.smileSize
+    smileX = bar.smileX
+    smileMidY = bar.smileY
+    const anchor = smileAnchor()
+    const available = Math.max(80, dock.y - anchor.y - SLACK - 16)
+    pullExtra = extraForMax(available)
     sim.anchor = anchor
-
-    if (resized && mode !== 'pulling') {
-      restAt(anchor)
-      sim.poseSagging(anchor, homeEnd)
-      sim.restLength = idleRest
-    }
   }
 
   const setReset = (on: boolean) => {
     if (!reset) return
     reset.hidden = !on
-  }
-
-  const snapHome = () => {
-    const metrics = markMetrics(smileX, smileMidY, smileSize, markParams())
-    restAt({ x: smileX, y: metrics.bottomY })
-    sim.poseSagging(sim.anchor, homeEnd)
-    sim.restLength = idleRest
   }
 
   const startAnim = (next: Omit<Anim, 't0'> & { t0?: number }) => {
@@ -160,14 +137,20 @@ export function mountHero(root: HTMLElement): () => void {
     anim = { ...next, t0: performance.now() }
   }
 
+  const clearRope = () => {
+    sim.particles = []
+    sim.previous = []
+    grabPoint = null
+  }
+
   const goIdle = () => {
     mode = 'idle'
     duration = MIN_SECONDS
     remaining = 0
     progress = 1
     endAt = 0
+    clearRope()
     startAnim({ sag0: sag, sag1: 0, morph0: morph, morph1: 0, dur: HOME_MS })
-    snapHome()
     setReset(false)
   }
 
@@ -179,40 +162,40 @@ export function mountHero(root: HTMLElement): () => void {
     endAt = performance.now() + duration * 1000
     progress = 1
     startAnim({ sag0: sag, sag1: 0, morph0: morph, morph1: 1, dur: INTRO_MS })
-    grabPoint = null
+    clearRope()
     setReset(true)
   }
 
   const grabAt = (point: Pt) => {
-    const metrics = markMetrics(smileX, smileMidY, smileSize, markParams())
-    const floor = metrics.bottomY + SLACK
+    const anchor = smileAnchor()
+    const floor = anchor.y + SLACK
     const end = {
       x: point.x,
-      y: Math.min(height - 18, Math.max(floor, point.y)),
+      y: Math.min(dock.y - 12, Math.max(floor, point.y)),
     }
-    sim.anchor = { x: smileX, y: metrics.bottomY }
+    sim.anchor = { ...anchor }
     sim.farAnchor = { ...end }
-    sim.pinsBothEnds = true
-    const span = Math.hypot(end.x - sim.anchor.x, end.y - sim.anchor.y)
-    const extra = Math.max(0, span - SLACK)
+    sim.pinsBothEnds = false
+    const span = Math.hypot(end.x - anchor.x, end.y - anchor.y)
     sim.restLength = Math.max(40, span * sim.slack)
     grabPoint = end
-    sag = Math.min(1, extra / SAG_VISUAL)
+    sag = Math.min(1, Math.max(0, span - SLACK) / SAG_VISUAL)
     morph = 0
     progress = 1
-    duration = secondsFromPull(SLACK + extra, extraFor15)
-    duration = Math.min(duration, MAX_SECONDS)
+    duration = Math.min(secondsFromPull(span, pullExtra), MAX_SECONDS)
     remaining = duration
-    lastSnap = isSnap(duration)
+  }
+
+  const nearHandle = (p: Pt): boolean => {
+    const nearSmile = Math.hypot(p.x - smileX, p.y - smileMidY) <= Math.max(20, smileSize)
+    if (mode !== 'pulling') return nearSmile
+    return nearSmile || sim.hitsBead(p, 28) || sim.hits(p, 12)
   }
 
   const onPointerDown = (e: PointerEvent) => {
     if (e.button !== 0 && e.pointerType === 'mouse') return
     const p = pointerIn(root, e)
-    const nearSmile = Math.hypot(p.x - smileX, p.y - smileMidY) <= smileSize * 0.72
-    const ropeOut = mode === 'pulling'
-    const near = nearSmile || (ropeOut && (sim.hitsBead(p, 28) || sim.hits(p, 10)))
-    if (!near) return
+    if (!nearHandle(p)) return
     e.preventDefault()
     canvas.setPointerCapture(e.pointerId)
     grabId = e.pointerId
@@ -222,19 +205,13 @@ export function mountHero(root: HTMLElement): () => void {
     grabAt(p)
     if (grabPoint) {
       sim.layoutChord(sim.anchor, grabPoint)
-      sim.restLength = Math.max(
-        40,
-        Math.hypot(grabPoint.x - sim.anchor.x, grabPoint.y - sim.anchor.y) * sim.slack,
-      )
-      sim.pinsBothEnds = true
-      sim.farAnchor = { ...grabPoint }
+      sim.placeFreeEnd(grabPoint)
     }
   }
 
   const onPointerMove = (e: PointerEvent) => {
     const p = pointerIn(root, e)
-    const nearSmile = Math.hypot(p.x - smileX, p.y - smileMidY) <= smileSize * 0.72
-    hover = nearSmile || (mode === 'pulling' && (sim.hitsBead(p, 26) || sim.hits(p, 8)))
+    hover = nearHandle(p)
     if (grabId === e.pointerId && mode === 'pulling') {
       e.preventDefault()
       grabAt(p)
@@ -254,7 +231,6 @@ export function mountHero(root: HTMLElement): () => void {
 
   const onReset = () => {
     grabId = null
-    grabPoint = null
     goIdle()
   }
 
@@ -270,69 +246,76 @@ export function mountHero(root: HTMLElement): () => void {
     }
   }
 
+  const syncBar = () => {
+    bar = layoutBar(width)
+    smileSize = bar.smileSize
+    smileX = bar.smileX
+    smileMidY = bar.smileY
+  }
+
+  const drawRope = () => {
+    if (mode !== 'pulling' || sim.particles.length < 2) return
+    ctx.save()
+    ctx.lineCap = 'round'
+    ctx.lineJoin = 'round'
+    smoothRopePath(ctx, sim.particles)
+    ctx.strokeStyle = palette.acidDeep
+    ctx.globalAlpha = 0.55
+    ctx.lineWidth = 3.2
+    ctx.stroke()
+    smoothRopePath(ctx, sim.particles)
+    ctx.strokeStyle = palette.acid
+    ctx.globalAlpha = 1
+    ctx.lineWidth = 2
+    ctx.stroke()
+    ctx.restore()
+
+    const bead = sim.end
+    const r = 7.2
+    ctx.save()
+    ctx.beginPath()
+    ctx.fillStyle = 'rgba(7, 7, 8, 0.45)'
+    ctx.arc(bead.x, bead.y + 0.6, r + 1.4, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.beginPath()
+    ctx.fillStyle = palette.acid
+    ctx.arc(bead.x, bead.y, r, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.beginPath()
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.42)'
+    ctx.arc(bead.x - 1.6, bead.y - 2.1, r * 0.28, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.restore()
+  }
+
   const draw = () => {
     ctx.clearRect(0, 0, width, height)
+    syncBar()
+    dock = layoutDock(width, height)
+    drawDesktop(ctx, width, height, bar.barH)
+    drawDock(ctx, dock)
+    drawMenuBar(ctx, width, bar)
     const params = markParams()
-    const metrics = drawMark(ctx, smileX, smileMidY, smileSize, params, CORAL)
+    const color = mode === 'done' ? palette.heat : palette.acid
+    const metrics = drawMark(ctx, smileX, smileMidY, smileSize, params, color)
     sim.anchor = { x: smileX, y: metrics.bottomY }
     if (sim.particles.length) {
       sim.particles[0] = { ...sim.anchor }
       sim.previous[0] = { ...sim.anchor }
     }
 
-    const showRope = mode === 'pulling' && sim.particles.length >= 2
-    if (showRope) {
-      ctx.save()
-      ctx.lineCap = 'round'
-      ctx.lineJoin = 'round'
-      smoothRopePath(ctx, sim.particles)
-      ctx.strokeStyle = CORAL_DEEP
-      ctx.globalAlpha = 0.55
-      ctx.lineWidth = 3.2
-      ctx.stroke()
-      smoothRopePath(ctx, sim.particles)
-      ctx.strokeStyle = CORAL
-      ctx.globalAlpha = 1
-      ctx.lineWidth = 2
-      ctx.stroke()
-      ctx.restore()
+    drawRope()
 
-      const bead = sim.end
-      const r = 7.2
-      ctx.save()
-      ctx.beginPath()
-      ctx.fillStyle = 'rgba(12, 13, 16, 0.35)'
-      ctx.arc(bead.x, bead.y + 0.6, r + 1.4, 0, Math.PI * 2)
-      ctx.fill()
-      ctx.beginPath()
-      ctx.fillStyle = CORAL
-      ctx.arc(bead.x, bead.y, r, 0, Math.PI * 2)
-      ctx.fill()
-      ctx.beginPath()
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.45)'
-      ctx.arc(bead.x - 1.6, bead.y - 2.1, r * 0.28, 0, Math.PI * 2)
-      ctx.fill()
-      ctx.restore()
-    }
-
-    const showTime = mode === 'pulling' || mode === 'running' || mode === 'done'
     if (timeEl) {
-      if (showTime) {
-        const value = mode === 'pulling' ? duration : remaining
-        timeEl.textContent = formatLive(value)
-        timeEl.dataset.snap = isSnap(mode === 'pulling' ? duration : 0) ? '1' : '0'
+      if (mode === 'pulling' && grabPoint) {
+        timeEl.textContent = formatLive(duration)
+        timeEl.dataset.snap = isSnap(duration) ? '1' : '0'
         timeEl.hidden = false
-        if (showRope) {
-          const bead = sim.end
-          const onRight = bead.x < width - 88
-          timeEl.style.left = `${onRight ? bead.x + 14 : bead.x - 14}px`
-          timeEl.style.top = `${bead.y}px`
-          timeEl.style.transform = onRight ? 'translate(0, -50%)' : 'translate(-100%, -50%)'
-        } else {
-          timeEl.style.left = `${smileX}px`
-          timeEl.style.top = `${smileMidY + smileSize * 0.62}px`
-          timeEl.style.transform = 'translate(-50%, 0)'
-        }
+        const bead = sim.end
+        const onRight = bead.x < width - 72
+        timeEl.style.left = `${onRight ? bead.x + 14 : bead.x - 14}px`
+        timeEl.style.top = `${bead.y}px`
+        timeEl.style.transform = onRight ? 'translate(0, -50%)' : 'translate(-100%, -50%)'
       } else {
         timeEl.hidden = true
         timeEl.textContent = ''
@@ -340,18 +323,17 @@ export function mountHero(root: HTMLElement): () => void {
     }
 
     if (hint) {
-      const showHint = mode === 'idle'
+      const showHint = mode === 'idle' && booted
       hint.hidden = !showHint
       if (showHint) {
         hint.style.left = `${smileX}px`
-        hint.style.top = `${smileMidY + smileSize * 0.58}px`
+        hint.style.top = `${smileMidY + smileSize * 0.62}px`
       }
     }
 
     canvas.style.cursor = mode === 'pulling' ? 'grabbing' : hover ? 'grab' : 'default'
     root.classList.toggle('is-pulling', mode === 'pulling')
     root.classList.toggle('is-running', mode === 'running')
-    root.classList.toggle('is-snapped', lastSnap && mode === 'pulling')
   }
 
   const frame = () => {
@@ -360,8 +342,9 @@ export function mountHero(root: HTMLElement): () => void {
     lastTs = now
     tickAnim(now)
 
-    const metrics = markMetrics(smileX, smileMidY, smileSize, markParams())
-    sim.anchor = { x: smileX, y: metrics.bottomY }
+    if (!booted && now - bootAt >= (reduced ? 0 : BOOT_MS)) booted = true
+
+    sim.anchor = smileAnchor()
     const bounds = { width, height }
 
     if (mode === 'running') {
@@ -382,16 +365,16 @@ export function mountHero(root: HTMLElement): () => void {
     }
 
     if (mode === 'pulling' && grabPoint) {
-      sim.pinsBothEnds = true
+      sim.pinsBothEnds = false
       sim.farAnchor = { ...grabPoint }
       const span = Math.hypot(grabPoint.x - sim.anchor.x, grabPoint.y - sim.anchor.y)
       sim.restLength = Math.max(40, span * sim.slack)
       if (reduced) {
         sim.layoutChord(sim.anchor, grabPoint)
       } else {
+        sim.placeFreeEnd(grabPoint)
         sim.step(dt, bounds)
-        sim.pinEnds()
-        sim.clampInteriorY(grabPoint.y)
+        sim.placeFreeEnd(grabPoint)
       }
     }
 
@@ -409,17 +392,12 @@ export function mountHero(root: HTMLElement): () => void {
   const onMotion = () => {
     reduced = motionMq.matches
     document.documentElement.classList.toggle('reduced-motion', reduced)
-    if (reduced && mode !== 'pulling') snapHome()
+    if (reduced) booted = true
   }
 
   const ro = new ResizeObserver(() => layout())
   ro.observe(root)
   layout()
-  if (sim.particles.length < 2) {
-    const metrics = markMetrics(smileX, smileMidY, smileSize, markParams())
-    sim.reset({ x: smileX, y: metrics.bottomY }, homeEnd)
-    sim.restLength = idleRest
-  }
 
   canvas.addEventListener('pointerdown', onPointerDown, { passive: false })
   canvas.addEventListener('pointermove', onPointerMove, { passive: false })

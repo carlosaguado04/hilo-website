@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="dark" />
-    <meta name="theme-color" content="#0C0D10" />
+    <meta name="theme-color" content="#070708" />
     <meta
       name="description"
       content="Hilo — Pull the string. Steal the time. A menu-bar timer with a hanging thread. Drag to set it, watch the smile become a circle, then unfill as it runs out."
@@ -15,7 +15,7 @@
       content="Pull the string. Steal the time. A menu-bar timer with a hanging thread."
     />
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://usehilo.dev" />
+    <meta property="og:url" content="https://hilo.acidity.lol" />
     <meta name="twitter:card" content="summary" />
     <title>Hilo</title>
     <link
@@ -32,104 +32,76 @@
       type="font/woff2"
       crossorigin
     />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <link rel="canonical" href="https://usehilo.dev" />
+    <link rel="canonical" href="https://hilo.acidity.lol" />
   </head>
   <body>
     <a class="skip" href="#main">Skip to content</a>
-    <div class="grain" aria-hidden="true"></div>
-    <div class="wash" aria-hidden="true"></div>
-
-    <a class="mark" href="#home" aria-label="Hilo home">
-      <img
-        class="mark-icon"
-        src="/apple-touch-icon.png"
-        width="40"
-        height="40"
-        alt=""
-      />
-    </a>
 
     <main id="main">
       <section class="hero" id="home" aria-labelledby="hero-title">
-        <div class="hero-stage" id="hero-stage">
-          <canvas
-            class="hero-canvas"
-            aria-label="Pull the smile to set a timer. Watch it become a circle and unfill."
-          ></canvas>
-          <p class="hero-hint" data-hint>Pull</p>
-          <p class="hero-time" data-time aria-live="polite" hidden></p>
-          <button type="button" class="hero-reset" data-reset hidden>Reset</button>
-        </div>
-        <div class="hero-copy">
-          <h1 class="hero-title" id="hero-title">
-            <span class="hero-name">Hilo</span>
-            <span class="hero-tag"><span>Pull the string.</span><span>Steal the time.</span></span>
-          </h1>
+        <header class="hero-copy">
+          <h1 class="wordmark" id="hero-title">Hilo</h1>
+          <p class="hero-tag">Pull the string. Steal the time.</p>
           <p class="hero-lede">A menu-bar timer with a hanging thread.</p>
+        </header>
+
+        <div class="stage" id="hero-stage">
+          <canvas
+            class="stage-canvas"
+            aria-label="Drag the smile to set a timer. The smile becomes a circle and unfills as it runs."
+          ></canvas>
+          <p class="stage-hint" data-hint>Pull</p>
+          <p class="stage-time" data-time aria-live="polite" hidden></p>
+          <button type="button" class="stage-reset" data-reset hidden>Reset</button>
+        </div>
+
+        <div class="cta" id="get">
+          <span class="btn is-soon" aria-disabled="true">Coming soon</span>
+          <p class="cta-meta">Apple Silicon · Mac menu-bar</p>
         </div>
       </section>
 
-      <div class="after" id="after">
-        <section class="line" id="kit" aria-label="What it does">
-          <canvas class="line-canvas" data-line aria-hidden="true"></canvas>
-          <ol class="pegs">
-            <li class="peg">
-              <div class="peg-hang">
-                <span class="peg-dot" aria-hidden="true"></span>
-                <h2>Several at once</h2>
-                <p>Pull another while one’s running. They don’t steal each other.</p>
-              </div>
-            </li>
-            <li class="peg">
-              <div class="peg-hang">
-                <span class="peg-dot" aria-hidden="true"></span>
-                <h2>Pomodoro that means it</h2>
-                <p>25 / 5 / long after four. Optional full-screen <em>Take a break.</em></p>
-              </div>
-            </li>
-            <li class="peg">
-              <div class="peg-hang">
-                <span class="peg-dot" aria-hidden="true"></span>
-                <h2>Feel the pull</h2>
-                <p>Trackpad ticks + a dry thread sound (or off).</p>
-              </div>
-            </li>
-            <li class="peg">
-              <div class="peg-hang">
-                <span class="peg-dot" aria-hidden="true"></span>
-                <h2>Name it</h2>
-                <p>Confirm on release, optional name → that title when time’s up.</p>
-              </div>
-            </li>
-            <li class="peg">
-              <div class="peg-hang">
-                <span class="peg-dot" aria-hidden="true"></span>
-                <h2>Bar your way</h2>
-                <p>While running: Icon (quiet unfill) or Timer.</p>
-              </div>
-            </li>
-          </ol>
-        </section>
-
-        <section class="land" id="get" aria-labelledby="get-title">
-          <h2 class="land-title" id="get-title">For Mac.</h2>
-          <p class="land-copy">
-            Hilo lives in the menu bar. It’s in use. A disk image will land here when it’s ready to leave the studio.
-          </p>
-        </section>
-      </div>
+      <section class="story" id="story" aria-label="What it does">
+        <ol class="beats">
+          <li class="beat" data-reveal>
+            <h2>Pull the string to set time</h2>
+            <p>Short pulls land around ten seconds. Longer pulls grow. The ceiling is eight hours.</p>
+          </li>
+          <li class="beat" data-reveal>
+            <h2>Several at once</h2>
+            <p>Arm another without killing the first. They don’t steal each other.</p>
+          </li>
+          <li class="beat" data-reveal>
+            <h2>Pomodoro when you want it</h2>
+            <p>Work, break, long break after four. Optional full-screen <em>Take a break.</em></p>
+          </li>
+          <li class="beat" data-reveal>
+            <h2>Name it</h2>
+            <p>Done uses the name. Blank stays Hilo.</p>
+          </li>
+          <li class="beat" data-reveal>
+            <h2>Bar your way</h2>
+            <p>Idle is a smile. While running: the circle unfills, or a clock.</p>
+          </li>
+          <li class="beat" data-reveal>
+            <h2>Eight hours</h2>
+            <p>Rope ceiling. Presets stay short.</p>
+          </li>
+        </ol>
+      </section>
     </main>
 
-    <footer class="end" id="contact">
-      <p class="house">An <span class="brand-word">Acidity</span> App.</p>
-      <p class="end-links">
-        <a href="mailto:hello@acidity.lol">hello@acidity.lol</a>
+    <footer class="end">
+      <p class="end-line">
+        © 2026
         <span class="dot" aria-hidden="true">·</span>
-        <a href="https://acidity.lol">acidity.lol</a>
+        <a href="https://hilo.acidity.lol">hilo.acidity.lol</a>
+        <span class="dot" aria-hidden="true">·</span>
+        A product of <a href="https://acidity.lol" rel="noreferrer">Acidity</a>
       </p>
-      <p class="fine">© <span id="year"></span> Acidity</p>
     </footer>
 
     <noscript>
